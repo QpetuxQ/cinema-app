@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "title": "Дюна: Часть вторая",
+    "poster": "https://image.tmdb.org/t/p/w500/8bcoRX3hQRHufLPSDREdvr3YMXx.jpg",
+    "genre": "Фантастика, Приключения",
+    "rating": 8.6,
+    "duration": "2ч 46м",
+    "description": "Пол Атрейдес объединяется с фременами, чтобы отомстить за свою семью."
+  },
+  {
+    "id": 2,
+    "title": "Оппенгеймер",
+    "poster": "https://image.tmdb.org/t/p/w500/bAFmcr4fM9YXiqL1A1eU7K2QZ4T.jpg",
+    "genre": "Исторический, Драма",
+    "rating": 8.9,
+    "duration": "3ч 0м",
+    "description": "История создателя атомной бомбы Роберта Оппенгеймера."
+  },
+  {
+    "id": 3,
+    "title": "Барби",
+    "poster": "https://image.tmdb.org/t/p/w500/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg",
+    "genre": "Комедия, Фэнтези",
+    "rating": 7.4,
+    "duration": "1ч 54м",
+    "description": "Барби отправляется в реальный мир, чтобы найти смысл жизни."
+  }
+]
