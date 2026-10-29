@@ -5,13 +5,17 @@ from fastapi.staticfiles import StaticFiles
 import os
 from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Cinema Booking API")
 
 # Разрешаем фронтенду обращаться к API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # фронтенд
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
