@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 from .. import models, schemas, database
+from ..kafka_producer import publish_ticket_purchased
 from .auth import get_current_user
 
 router = APIRouter(
@@ -44,6 +45,9 @@ def create_ticket(
     db.add(new_ticket)
     db.commit()
     db.refresh(new_ticket)
+
+    publish_ticket_purchased(new_ticket)
+
     return new_ticket
 
 
