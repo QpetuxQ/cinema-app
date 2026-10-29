@@ -1,6 +1,5 @@
-import { createContext, useContext, useState } from "react";
-
-const CinemaContext = createContext();
+import { useState } from "react";
+import { CinemaContext } from "./CinemaContextValue";
 
 export function CinemaProvider({ children }) {
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -21,8 +20,4 @@ export function CinemaProvider({ children }) {
       {children}
     </CinemaContext.Provider>
   );
-}
-
-export function useCinema() {
-  return useContext(CinemaContext);
 }

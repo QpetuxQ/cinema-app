@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import * as FramerMotion from "framer-motion";
 
 export default function MyTickets() {
   const { token, user } = useAuth();
@@ -92,7 +92,7 @@ export default function MyTickets() {
     if (!movie || !hall) return null;
 
     return (
-      <motion.div
+      <FramerMotion.motion.div
         key={t.id}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -145,7 +145,7 @@ export default function MyTickets() {
             🎬 К фильму
           </Link>
         </div>
-      </motion.div>
+      </FramerMotion.motion.div>
     );
   };
 
