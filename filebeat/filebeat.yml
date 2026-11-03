@@ -4,10 +4,19 @@ filebeat.inputs:
     enabled: true
     paths:
       - /var/log/cinema/*.log
+
     prospector.scanner.fingerprint.length: 64
+
     fields:
-       app_service: cinema-api
+      app_service: cinema-api
     fields_under_root: true
+
+processors:
+  - decode_json_fields:
+      fields: ["message"]
+      target: "app"
+      overwrite_keys: true
+      add_error_key: true
 
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
@@ -16,4 +25,3 @@ setup.kibana:
   host: "http://kibana:5601"
 
 logging.level: debug
-logging.selectors: ["*"]
