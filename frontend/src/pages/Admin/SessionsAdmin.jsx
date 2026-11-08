@@ -67,7 +67,10 @@ export default function SessionsAdmin() {
 
     const res = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
       body: JSON.stringify(payload),
     });
 
@@ -89,13 +92,15 @@ export default function SessionsAdmin() {
 
     const res = await fetch(`http://127.0.0.1:8000/sessions/${id}`, {
       method: "DELETE",
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     });
 
     if (res.ok) {
       setSessions(sessions.filter((s) => s.id !== id));
       alert("🗑 Сеанс удалён!");
     } else {
-      alert("Ошибка при удалении.");
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || "Ошибка при удалении.");
     }
   };
 

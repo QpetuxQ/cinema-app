@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 
 export default function Register() {
@@ -15,7 +15,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form.username, form.email, form.password);
-      navigate("/"); // после регистрации — на главную
+      navigate("/");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -24,26 +24,26 @@ export default function Register() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black text-white">
-      <div className="bg-gray-900 p-8 rounded-xl shadow-lg w-[400px]">
-        <h2 className="text-3xl font-bold text-center mb-6 text-red-600">
-          Регистрация
-        </h2>
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="card w-full max-w-sm p-8!">
+        <h2 className="mb-6 text-center text-xl font-semibold">Создать аккаунт</h2>
 
         {error && (
-          <p className="text-red-500 bg-red-900/30 p-2 rounded text-sm mb-3">
+          <p className="mb-4 rounded-2xl bg-red-50 px-4 py-2 text-center text-sm text-red-700">
             {error}
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="text"
-            placeholder="Имя пользователя"
+            placeholder="Имя (латиница, цифры, _)"
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
             required
-            className="w-full bg-gray-800 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
+            pattern="[A-Za-z0-9_]{3,32}"
+            title="3–32 символа: латинские буквы, цифры и _"
+            className="input"
           />
           <input
             type="email"
@@ -51,34 +51,29 @@ export default function Register() {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
-            className="w-full bg-gray-800 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
+            className="input"
           />
           <input
             type="password"
-            placeholder="Пароль"
+            placeholder="Пароль (8+ символов, буквы и цифры)"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
-            className="w-full bg-gray-800 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
+            pattern="(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{8,64}"
+            title="8–64 символа: латинские буквы и цифры, минимум одна буква и одна цифра"
+            className="input"
           />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-md font-semibold transition"
-          >
-            {loading ? "Создание..." : "Создать аккаунт"}
+          <button type="submit" disabled={loading} className="btn-dark mt-3 w-full">
+            {loading ? "Создаём..." : "Создать аккаунт"}
           </button>
         </form>
 
-        <p className="text-center text-gray-400 mt-4 text-sm">
+        <p className="mt-5 text-center text-sm text-black/60">
           Уже есть аккаунт?{" "}
-          <a
-            href="/login"
-            className="text-red-500 hover:text-red-400 font-semibold"
-          >
+          <Link to="/login" className="font-semibold text-ink underline underline-offset-4">
             Войти
-          </a>
+          </Link>
         </p>
       </div>
     </div>

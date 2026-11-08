@@ -1,4 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+from datetime import datetime
+from types import SimpleNamespace
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 from .. import models, schemas, database
@@ -15,12 +20,27 @@ router = APIRouter(
 @router.post("/", response_model=schemas.Ticket)
 def create_ticket(
     ticket: schemas.TicketCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     session = db.query(models.Session).filter(models.Session.id == ticket.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Сеанс не найден")
+
+    if session.date_time <= datetime.now():
+        raise HTTPException(status_code=400, detail="Сеанс уже начался или прошёл")
+
+    # место должно существовать в зале и быть доступным
+    hall = db.query(models.Hall).filter(models.Hall.id == session.hall_id).first()
+    if not hall:
+        raise HTTPException(status_code=400, detail="Для сеанса не найден зал")
+    seats = json.loads(hall.seats)
+    r, c = ticket.row_number, ticket.seat_number
+    if not (1 <= r <= len(seats)) or not (1 <= c <= len(seats[r - 1])):
+        raise HTTPException(status_code=400, detail="Такого места нет в зале")
+    if seats[r - 1][c - 1] == "blocked":
+        raise HTTPException(status_code=400, detail="Это место недоступно")
 
     existing = (
         db.query(models.Ticket)
@@ -43,10 +63,25 @@ def create_ticket(
     )
 
     db.add(new_ticket)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # два запроса одновременно купили одно место — второй проигрывает
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Место уже занято")
     db.refresh(new_ticket)
 
-    publish_ticket_purchased(new_ticket)
+    # снимок данных: к моменту фоновой задачи сессия БД уже закрыта
+    event = SimpleNamespace(
+        id=new_ticket.id,
+        user_id=new_ticket.user_id,
+        session_id=new_ticket.session_id,
+        row_number=new_ticket.row_number,
+        seat_number=new_ticket.seat_number,
+        status=new_ticket.status,
+    )
+    # Kafka не должна задерживать ответ покупателю
+    background_tasks.add_task(publish_ticket_purchased, event)
 
     return new_ticket
 

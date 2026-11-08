@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { API, dateKey, makeDays, posterUrl, sessionRange, softChip, splitGenres, timeChip } from "./Utils";
 import { getMovieById, getSessions } from "../api/index";
+import DateStrip from "./Datestrip";
 
 export default function MovieDetails() {
   const { id } = useParams();
@@ -8,202 +11,92 @@ export default function MovieDetails() {
   const [sessions, setSessions] = useState([]);
   const [halls, setHalls] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0] // yyyy-mm-dd
-  );
-
+  const [picked, setPicked] = useState(null);
 
   useEffect(() => {
-    Promise.all([
-      getMovieById(id),
-      getSessions(),
-      fetch("http://127.0.0.1:8000/halls").then((r) => r.json()),
-    ])
-      .then(([movieData, sessionsData, hallsData]) => {
-        setMovie(movieData);
-        setHalls(hallsData);
-
-        const now = new Date();
-        const upcoming = sessionsData
-          .filter((s) => s.movie_id === Number(id))
-          .filter((s) => new Date(s.date_time) > now)
-          .sort((a, b) => new Date(a.date_time) - new Date(b.date_time));
-
-        setSessions(upcoming);
+    Promise.all([getMovieById(id), getSessions(), fetch(`${API}/halls`).then((r) => r.json())])
+      .then(([m, s, h]) => {
+        setMovie(m);
+        setHalls(h);
+        setSessions(
+          s
+            .filter((x) => x.movie_id === Number(id))
+            .filter((x) => new Date(x.date_time).getTime() > Date.now())
+            .sort((a, b) => new Date(a.date_time) - new Date(b.date_time))
+        );
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
 
-  const formatDate = (dateTimeStr) => {
-    const d = new Date(dateTimeStr);
-    return d.toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  if (loading) return <p className="py-24 text-center text-black/50">Загрузка...</p>;
+  if (!movie) return <p className="py-24 text-center text-black/50">Фильм не найден</p>;
 
-  // 🎬 Отбираем сеансы по выбранной дате
-  const filteredSessions = sessions.filter((s) => {
-    const sessionDate = new Date(s.date_time);
-    const dateStr = sessionDate.toISOString().split("T")[0];
-    return dateStr === selectedDate;
-  });
+  const days = makeDays(10);
+  // по умолчанию открываем ближайший день, в котором есть сеансы
+  const firstWithShows = days.map(dateKey).find((k) => sessions.some((s) => dateKey(new Date(s.date_time)) === k));
+  const date = picked ?? firstWithShows ?? dateKey(days[0]);
 
-  // 📆 Генерация ближайших 7 дней
-  const generateDates = () => {
-    const today = new Date();
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      return d;
-    });
-  };
-
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-screen bg-black text-white">
-        Загрузка...
-      </div>
-    );
-
-  if (!movie)
-    return (
-      <div className="flex items-center justify-center h-screen bg-black text-gray-400">
-        Фильм не найден 😔
-      </div>
-    );
+  const ofDay = sessions.filter((s) => dateKey(new Date(s.date_time)) === date);
+  const byHall = [...new Set(ofDay.map((s) => s.hall_id))].map((hid) => ({
+    hall: halls.find((h) => h.id === hid)?.name || `Зал ${hid}`,
+    items: ofDay.filter((s) => s.hall_id === hid),
+  }));
 
   return (
-    <div className="bg-black text-white min-h-screen pt-20">
-      {/* 🎥 HERO */}
-      <div
-        className="relative w-full h-[80vh] flex items-end"
-        style={{
-          backgroundImage: `url(${
-            movie.poster ? `http://127.0.0.1:8000${movie.poster}` : "/no-poster.png"
-          })`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
+    <div className="space-y-5">
+      <Link to="/movies" className="inline-flex items-center gap-2 text-sm font-medium text-black/60 transition hover:text-black">
+        <ArrowLeft size={16} /> Все фильмы
+      </Link>
 
-        <div className="relative z-10 flex flex-col md:flex-row items-end md:items-center px-12 pb-16 gap-10 max-w-6xl mx-auto">
-          <img
-            src={
-              movie.poster
-                ? `http://127.0.0.1:8000${movie.poster}`
-                : "/no-poster.png"
-            }
-            alt={movie.title}
-            className="w-[250px] md:w-[320px] rounded-xl shadow-2xl border border-gray-700"
-          />
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(260px,330px)_minmax(0,1fr)]">
+        <div className="aspect-[4/5] overflow-hidden rounded-3xl bg-lav-100">
+          <img src={posterUrl(movie.poster, "400x500")} alt={movie.title} className="h-full w-full object-cover object-top" />
+        </div>
 
-          <div className="space-y-4 max-w-2xl">
-            <h1 className="text-5xl font-extrabold leading-tight">
-              {movie.title}
-            </h1>
-            <div className="flex flex-wrap gap-3 text-gray-300 text-sm">
-              {movie.genre && (
-                <span className="bg-red-600 px-3 py-1 rounded-md">
-                  {movie.genre}
-                </span>
-              )}
-              {movie.duration && (
-                <span className="bg-gray-800 px-3 py-1 rounded-md">
-                  ⏱ {movie.duration} мин
-                </span>
-              )}
+        <div className="space-y-5">
+          <section className="card">
+            <h1 className="text-2xl font-semibold leading-tight">{movie.title}</h1>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {splitGenres(movie.genre).map((g) => (
+                <span key={g} className={softChip}>{g}</span>
+              ))}
+              {movie.duration && <span className={softChip}>{movie.duration} мин</span>}
+              {movie.age_rating && <span className={softChip}>{movie.age_rating}</span>}
             </div>
-
-            <p className="text-gray-300 text-lg leading-relaxed">
+            <p className="mt-5 max-w-2xl leading-relaxed text-black/70">
               {movie.description || "Описание отсутствует"}
             </p>
+          </section>
 
-            <Link
-              to="/movies"
-              className="bg-gray-800 hover:bg-gray-700 px-6 py-3 rounded-lg font-semibold transition inline-block mt-6"
-            >
-              ← Назад к фильмам
-            </Link>
-          </div>
-        </div>
-      </div>
+          <section className="card space-y-5">
+            <h2 className="text-[15px] font-semibold">Расписание</h2>
+            <DateStrip days={days} value={date} onChange={setPicked} />
 
-      {/* 🎟 Сеансы */}
-      <div className="px-12 py-16 max-w-6xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6 border-l-4 border-red-600 pl-3">
-          🕓 Расписание сеансов
-        </h2>
-
-        {/* 📆 Календарь */}
-        <div className="flex gap-4 mb-10 overflow-x-auto scrollbar-hide">
-          {generateDates().map((d) => {
-            const dateStr = d.toISOString().split("T")[0];
-            const isSelected = dateStr === selectedDate;
-            return (
-              <button
-                key={dateStr}
-                onClick={() => setSelectedDate(dateStr)}
-                className={`px-5 py-3 rounded-lg text-center font-semibold transition whitespace-nowrap
-                  ${
-                    isSelected
-                      ? "bg-red-600 text-white"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                  }`}
-              >
-                <div className="text-lg">
-                  {d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })}
-                </div>
-                <div className="text-sm text-gray-400">
-                  {d.toLocaleDateString("ru-RU", { weekday: "short" })}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 🪑 Сеансы */}
-        {filteredSessions.length > 0 ? (
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredSessions.map((session) => {
-              const hall = halls.find((h) => h.id === session.hall_id);
-              const hallInfo = hall ? `${hall.name}` : `Зал ${session.hall_id}`;
-              return (
-                <div
-                  key={session.id}
-                  className="bg-gray-900 hover:bg-gray-800 p-6 rounded-lg transition shadow-md border border-gray-800 flex flex-col justify-between"
-                >
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-2">
-                      {formatDate(session.date_time)}
-                    </h3>
-                    <p className="text-gray-400 text-sm mb-1">
-                      🏟 {hallInfo}
-                    </p>
-                    <p className="text-red-500 text-lg font-bold mb-4">
-                      💰 {session.price} ₽
-                    </p>
+            {byHall.length > 0 ? (
+              <div className="space-y-4">
+                {byHall.map(({ hall, items }) => (
+                  <div key={hall}>
+                    <p className="mb-2 text-sm text-black/60">{hall}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {items.map((s) => (
+                        <Link key={s.id} to={`/?session=${s.id}`} className={timeChip}>
+                          {sessionRange(s.date_time, movie.duration)} · {s.price} ₽
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-
-                  <Link
-                    to={`/tickets/${session.id}`}
-                     className="block w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-md font-semibold text-center transition"
-                  >
-                    Купить билет 🎟
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-gray-400 text-lg mt-4">
-            Нет доступных сеансов на выбранную дату 😞
-          </p>
-        )}
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-black/50">
+                {sessions.length === 0
+                  ? "Предстоящих сеансов пока нет."
+                  : "На этот день сеансов нет. Выберите другой день."}
+              </p>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

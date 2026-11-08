@@ -16,7 +16,7 @@ export default function UsersAdmin() {
   }, []);
 
   const changeRole = async (id, newRole) => {
-    await fetch(`http://127.0.0.1:8000/auth/${id}/role`, {
+    const res = await fetch(`http://127.0.0.1:8000/auth/${id}/role`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -24,6 +24,11 @@ export default function UsersAdmin() {
       },
       body: JSON.stringify({ role: newRole }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(typeof err.detail === "string" ? err.detail : "Не удалось сменить роль");
+      return;
+    }
     setUsers(
       users.map((u) => (u.id === id ? { ...u, role: newRole } : u))
     );
@@ -31,10 +36,15 @@ export default function UsersAdmin() {
 
   const deleteUser = async (id) => {
     if (!window.confirm("Удалить пользователя?")) return;
-    await fetch(`http://127.0.0.1:8000/auth/${id}`, {
+    const res = await fetch(`http://127.0.0.1:8000/auth/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(typeof err.detail === "string" ? err.detail : "Не удалось удалить пользователя");
+      return;
+    }
     setUsers(users.filter((u) => u.id !== id));
   };
 

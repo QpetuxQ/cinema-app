@@ -1,6 +1,5 @@
-
-import './App.css'
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./App.css";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 
 import Home from "./pages/Home";
@@ -13,12 +12,23 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import Register from "./pages/Register";
 import MyTickets from "./pages/MyTickets";
 
-function App() {
+function Layout() {
+  const { pathname } = useLocation();
+
+  // Админ-панель остаётся тёмной и на весь экран
+  if (pathname.startsWith("/admin")) {
+    return (
+      <Routes>
+        <Route path="/admin" element={<AdminDashboard />} />
+      </Routes>
+    );
+  }
+
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-surface">
+      <div className="mx-auto max-w-[1500px] px-4 pb-10 md:px-8">
         <Header />
-        <main className="p-6">
+        <main>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/movies" element={<Movies />} />
@@ -28,12 +38,17 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/my-tickets" element={<MyTickets />} />
-            <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         </main>
       </div>
-    </Router>
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <Router>
+      <Layout />
+    </Router>
+  );
+}

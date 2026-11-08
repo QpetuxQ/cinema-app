@@ -4,6 +4,9 @@ from fastapi import UploadFile, File
 from backend.app import models, schemas, database
 from backend.core.dependencies import get_current_user, get_current_admin
 import os
+import uuid
+
+ALLOWED_POSTER_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 router = APIRouter(
     prefix="/movies",
@@ -48,7 +51,8 @@ def update_movie(
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
 
-    for field, value in movie_data.dict().items():
+    # постер меняется только через POST /{id}/poster, иначе редактирование его стирает
+    for field, value in movie_data.dict(exclude={"poster"}).items():
         setattr(movie, field, value)
 
     db.commit()
@@ -66,6 +70,9 @@ def delete_movie(
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
 
+    if db.query(models.Session).filter(models.Session.movie_id == movie_id).first():
+        raise HTTPException(status_code=409, detail="Нельзя удалить фильм: для него есть сеансы")
+
     db.delete(movie)
     db.commit()
     return {"message": "Movie deleted"}
@@ -81,8 +88,12 @@ async def upload_movie_poster(
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
 
+    ext = os.path.splitext(os.path.basename(file.filename or ""))[1].lower()
+    if ext not in ALLOWED_POSTER_EXT:
+        raise HTTPException(status_code=400, detail="Допустимы только изображения: jpg, png, webp, gif")
+
     os.makedirs("poster", exist_ok=True)
-    filename = f"{movie_id}_{file.filename}"
+    filename = f"{movie_id}_{uuid.uuid4().hex}{ext}"  # имя от клиента не используем
     file_path = os.path.join("poster", filename)
 
     with open(file_path, "wb") as buffer:

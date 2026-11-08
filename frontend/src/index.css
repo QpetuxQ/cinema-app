@@ -1,23 +1,83 @@
 @import "tailwindcss";
 
-html, body {
-  background-color: #000;
-  color: #fff;
-  font-family: 'Inter', sans-serif;
+/* ===== Дизайн-токены (стиль FilmTIX: лавандовый + чёрный на светлом) ===== */
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+
+  --color-ink: #111111;
+  --color-surface: #f6f6f7;
+
+  --color-lav-50: #f4f2fb;
+  --color-lav-100: #e6e2f5;
+  --color-lav-200: #cfc9ec;
+  --color-lav-300: #bab2de;
+  --color-lav-400: #9d94c7;
+}
+
+@layer base {
+
+  html,
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-lav-400);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-3xl p-5 md:p-6;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-lav-50 border border-black/5 px-3 py-1 text-xs font-medium text-black/70;
+  }
+
+  .btn-dark {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink text-white px-6 py-3 text-sm font-semibold transition hover:bg-black/75 disabled:opacity-35 disabled:cursor-not-allowed;
+  }
+
+  .btn-lav {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-lav-200 text-ink px-6 py-3 text-sm font-semibold transition hover:bg-lav-300 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .input {
+    @apply w-full rounded-full bg-white border border-black/10 px-4 py-2.5 text-sm outline-none placeholder:text-black/40 focus:ring-2 focus:ring-lav-300;
+  }
+}
+
+/* Занятое место — бледное, с диагональной штриховкой как в макете */
+.seat-taken {
+  background-color: #f1f1f3;
+  background-image: repeating-linear-gradient(135deg,
+      rgba(0, 0, 0, 0.06) 0 2px,
+      transparent 2px 5px);
 }
 
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
+  background: var(--color-lav-300);
   border-radius: 10px;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

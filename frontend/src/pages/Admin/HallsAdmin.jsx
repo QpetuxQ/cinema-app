@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
 
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("token")}`,
+});
+
+async function failMessage(res) {
+  const err = await res.json().catch(() => ({}));
+  return typeof err.detail === "string" ? err.detail : "Ошибка запроса";
+}
+
 export default function HallsAdmin() {
   const [halls, setHalls] = useState([]);
   const [form, setForm] = useState({ name: "", rows: "", cols: "" });
@@ -25,9 +35,10 @@ export default function HallsAdmin() {
 
     const res = await fetch("http://127.0.0.1:8000/halls/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ ...form, rows, cols, seats }),
     });
+    if (!res.ok) return alert(await failMessage(res));
     const hall = await res.json();
     setHalls([...halls, hall]);
     setForm({ name: "", rows: "", cols: "" });
@@ -36,7 +47,11 @@ export default function HallsAdmin() {
   // Удаление
   const deleteHall = async (id) => {
     if (!window.confirm("Удалить этот зал?")) return;
-    await fetch(`http://127.0.0.1:8000/halls/${id}`, { method: "DELETE" });
+    const res = await fetch(`http://127.0.0.1:8000/halls/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) return alert(await failMessage(res));
     setHalls(halls.filter((h) => h.id !== id));
   };
 
@@ -48,15 +63,21 @@ export default function HallsAdmin() {
 
   const saveEdit = async (e) => {
     e.preventDefault();
+    const rows = Number(form.rows);
+    const cols = Number(form.cols);
+    // бэкенд требует схему мест: оставляем прежнюю, если размер не менялся
+    const current = halls.find((h) => h.id === editingHall);
+    const sameSize = current && current.rows === rows && current.cols === cols;
+    const seats = sameSize
+      ? current.seats
+      : Array.from({ length: rows }, () => Array.from({ length: cols }, () => "regular"));
+
     const res = await fetch(`http://127.0.0.1:8000/halls/${editingHall}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        rows: Number(form.rows),
-        cols: Number(form.cols),
-      }),
+      headers: authHeaders(),
+      body: JSON.stringify({ name: form.name, rows, cols, seats }),
     });
+    if (!res.ok) return alert(await failMessage(res));
     const updated = await res.json();
     setHalls(halls.map((h) => (h.id === editingHall ? updated : h)));
     setEditingHall(null);
@@ -83,9 +104,10 @@ export default function HallsAdmin() {
   const saveSeats = async () => {
     const res = await fetch(`http://127.0.0.1:8000/halls/${selectedHall.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(selectedHall),
     });
+    if (!res.ok) return alert(await failMessage(res));
     const updated = await res.json();
     setHalls(halls.map((h) => (h.id === selectedHall.id ? updated : h)));
     alert("✅ Конфигурация сохранена!");
@@ -104,8 +126,8 @@ export default function HallsAdmin() {
               seat === "regular"
                 ? "bg-green-600"
                 : seat === "vip"
-                ? "bg-blue-600"
-                : "bg-gray-500";
+                  ? "bg-blue-600"
+                  : "bg-gray-500";
             return (
               <div
                 key={`${r}-${c}`}

@@ -1,5 +1,21 @@
 const API_URL = "http://127.0.0.1:8000"; // твой бекенд
 
+// Бэкенд при ошибке валидации (422) отдаёт detail массивом, а не строкой
+function formatError(detail, fallback) {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const hints = {
+      username: "Имя: 3–32 символа, только латиница, цифры и _",
+      password: "Пароль: 8–64 символа, только латиница и цифры, минимум одна буква и одна цифра",
+      email: "Введите корректный email",
+    };
+    const fields = [...new Set(detail.map((d) => d.loc?.[1]))];
+    const msgs = fields.map((f) => hints[f]).filter(Boolean);
+    if (msgs.length) return msgs.join(". ");
+  }
+  return fallback;
+}
+
 // ======= MOVIES =======
 export async function getMovies() {
   const response = await fetch(`${API_URL}/movies`);
@@ -102,7 +118,7 @@ export async function registerUser(username, email, password) {
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.detail || "Ошибка регистрации");
+    throw new Error(formatError(err.detail, "Ошибка регистрации"));
   }
   return res.json();
 }

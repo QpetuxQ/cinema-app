@@ -1,186 +1,198 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/useAuth";
 import { Link } from "react-router-dom";
 import * as FramerMotion from "framer-motion";
+import { CalendarDays, MapPin } from "lucide-react";
+import { useAuth } from "../context/useAuth";
+import { API, posterUrl, rowLabel, softChip } from "./Utils";
+
+const when = (str) =>
+  new Date(str).toLocaleString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+function Empty({ title, text, action }) {
+  return (
+    <div className="card mx-auto max-w-md py-14 text-center">
+      <p className="text-[15px] font-semibold">{title}</p>
+      {text && <p className="mt-1 text-sm text-black/50">{text}</p>}
+      {action}
+    </div>
+  );
+}
+
+// Один билет-карточка на сеанс: все купленные места собраны вместе
+function TicketCard({ group, past }) {
+  const { movie, hall, session, seats, price } = group;
+  return (
+    <FramerMotion.motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className={`card relative flex flex-col gap-4 p-4! sm:flex-row ${past ? "opacity-60" : ""}`}
+    >
+      <div className="h-44 w-full shrink-0 overflow-hidden rounded-2xl bg-lav-100 sm:h-36 sm:w-32">
+        <img src={posterUrl(movie.poster)} alt={movie.title} className="h-full w-full object-cover object-top" />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h3 className="text-[15px] font-semibold leading-snug">{movie.title}</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className={`${softChip} inline-flex items-center gap-1.5`}>
+            <CalendarDays size={12} /> {when(session.date_time)}
+          </span>
+          <span className={`${softChip} inline-flex items-center gap-1.5`}>
+            <MapPin size={12} /> {hall?.name || `Зал ${session.hall_id}`}
+          </span>
+        </div>
+        <Link
+          to={`/movies/${movie.id}`}
+          className="mt-auto pt-3 text-sm font-medium text-black/60 underline underline-offset-4 transition hover:text-black"
+        >
+          О фильме
+        </Link>
+      </div>
+
+      {/* Отрывная часть билета */}
+      <div className="relative border-t border-dashed border-black/15 pt-4 sm:w-48 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+        <span className="absolute -left-[10px] -top-[26px] hidden h-5 w-5 rounded-full bg-surface sm:block" />
+        <span className="absolute -bottom-[26px] -left-[10px] hidden h-5 w-5 rounded-full bg-surface sm:block" />
+
+        <p className="text-xs text-black/50">{seats.length > 1 ? `Места (${seats.length})` : "Место"}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {seats.map((s) => (
+            <span
+              key={s}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-xs font-semibold text-white"
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+        <p className="mt-4 text-xs text-black/50">Итого</p>
+        <p className="text-[15px] font-semibold">{price != null ? `${(price * seats.length).toFixed(2)} ₽` : "—"}</p>
+        <span className={`${softChip} mt-3 inline-block ${past ? "" : "bg-lav-100!"}`}>
+          {past ? "Сеанс прошёл" : "Забронирован"}
+        </span>
+      </div>
+    </FramerMotion.motion.article>
+  );
+}
 
 export default function MyTickets() {
   const { token, user } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [movies, setMovies] = useState([]);
   const [halls, setHalls] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState(null);
 
   useEffect(() => {
-    async function fetchTickets() {
-      if (!token) return;
-
-      try {
-        const [ticketsData, moviesData, hallsData] = await Promise.all([
-          fetch("http://127.0.0.1:8000/tickets/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          }).then((r) => r.json()),
-          fetch("http://127.0.0.1:8000/movies").then((r) => r.json()),
-          fetch("http://127.0.0.1:8000/halls").then((r) => r.json()),
-        ]);
-
-        setTickets(ticketsData);
-        setMovies(moviesData);
-        setHalls(hallsData);
-      } catch (err) {
-        console.error("Ошибка загрузки моих билетов:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchTickets();
+    if (!token) return;
+    Promise.all([
+      fetch(`${API}/tickets/me`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch(`${API}/movies`).then((r) => r.json()),
+      fetch(`${API}/halls`).then((r) => r.json()),
+      fetch(`${API}/sessions`).then((r) => r.json()),
+    ])
+      .then(([t, m, h, s]) => {
+        setTickets(Array.isArray(t) ? t : []);
+        setMovies(m);
+        setHalls(h);
+        setSessions(s);
+      })
+      .catch((err) => console.error("Ошибка загрузки моих билетов:", err))
+      .finally(() => setLoading(false));
   }, [token]);
-
-  const getMovie = (movieId) => movies.find((m) => m.id === movieId);
-  const getHall = (hallId) => halls.find((h) => h.id === hallId);
-
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (!user)
     return (
-      <div className="flex items-center justify-center h-screen text-gray-400">
-        🔒 Пожалуйста, войдите в аккаунт, чтобы просмотреть свои билеты.
-      </div>
-    );
-
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-400">
-        ⏳ Загрузка билетов...
-      </div>
-    );
-
-  if (tickets.length === 0)
-    return (
-      <div className="flex flex-col items-center justify-center h-screen text-gray-400">
-        <h2 className="text-2xl font-semibold mb-4">😕 У вас пока нет билетов</h2>
-        <Link
-          to="/sessions"
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md font-semibold transition"
-        >
-          🎟 Перейти к сеансам
-        </Link>
-      </div>
-    );
-
-  // 🕒 Разделяем на предстоящие и прошедшие
-  const now = new Date();
-  const upcoming = tickets
-    .filter((t) => new Date(t.session?.date_time) > now)
-    .sort((a, b) => new Date(a.session?.date_time) - new Date(b.session?.date_time));
-
-  const past = tickets
-    .filter((t) => new Date(t.session?.date_time) <= now)
-    .sort((a, b) => new Date(b.session?.date_time) - new Date(a.session?.date_time));
-
-  const TicketCard = ({ t, isPast }) => {
-    const movie = getMovie(t.session?.movie_id);
-    const hall = getHall(t.session?.hall_id);
-    if (!movie || !hall) return null;
-
-    return (
-      <FramerMotion.motion.div
-        key={t.id}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className={`rounded-xl overflow-hidden shadow-lg border ${isPast ? "border-gray-800 bg-gray-900/70" : "border-gray-700 bg-gray-900"
-          } hover:shadow-red-700/40 transition-all flex flex-col`}
-      >
-        {/* 🎞 Постер */}
-        <img
-          src={
-            movie.poster
-              ? `http://127.0.0.1:8000${movie.poster}`
-              : "/no-poster.png"
+      <div className="space-y-5">
+        <h1 className="text-xl font-semibold">Мои билеты</h1>
+        <Empty
+          title="Войдите, чтобы увидеть свои билеты"
+          action={
+            <Link to="/login" className="btn-dark mt-6">
+              Войти
+            </Link>
           }
-          alt={movie.title}
-          className="w-full h-[260px] object-cover"
         />
-
-        {/* 📋 Информация */}
-        <div className="p-5 flex flex-col justify-between h-full">
-          <div>
-            <h3 className="text-xl font-bold mb-1">{movie.title}</h3>
-            <p className="text-gray-400 text-sm mb-1">
-              🕒 {formatDate(t.session?.date_time)}
-            </p>
-            <p className="text-gray-400 text-sm mb-1">
-              🏟 {hall.name || `Зал ${t.session?.hall_id}`}
-            </p>
-            <p className="text-gray-400 text-sm mb-3">
-              💺 Место: <span className="text-yellow-400">{t.seat_number}</span>
-            </p>
-            <p className="text-gray-400 text-sm mb-3">
-              💺 Ряд: <span className="text-yellow-400">{t.row_number}</span>
-            </p>
-            <p
-              className={`text-sm font-semibold ${isPast ? "text-gray-500" : "text-green-400"
-                }`}
-            >
-              {isPast ? "🎬 Сеанс завершён" : "✅ Забронирован"}
-            </p>
-          </div>
-
-          <Link
-            to={`/movies/${movie.id}`}
-            className={`mt-4 py-2 rounded-md text-center font-semibold transition ${isPast
-                ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                : "bg-red-600 hover:bg-red-700 text-white"
-              }`}
-          >
-            🎬 К фильму
-          </Link>
-        </div>
-      </FramerMotion.motion.div>
+      </div>
     );
-  };
+
+  // группируем билеты по сеансам
+  const byKey = {};
+  for (const t of tickets) {
+    if (!t.session) continue;
+    const g = (byKey[t.session.id] ||= { session: t.session, rows: [] });
+    g.rows.push(t);
+  }
+  const groups = Object.values(byKey)
+    .map(({ session, rows }) => ({
+      session,
+      movie: movies.find((m) => m.id === session.movie_id),
+      hall: halls.find((h) => h.id === session.hall_id),
+      price: sessions.find((s) => s.id === session.id)?.price ?? null,
+      seats: rows
+        .sort((a, b) => a.row_number - b.row_number || a.seat_number - b.seat_number)
+        .map((t) => `${rowLabel(t.row_number)}${t.seat_number}`),
+    }))
+    .filter((g) => g.movie);
+
+  const now = Date.now();
+  const upcoming = groups
+    .filter((g) => new Date(g.session.date_time).getTime() > now)
+    .sort((a, b) => new Date(a.session.date_time) - new Date(b.session.date_time));
+  const past = groups
+    .filter((g) => new Date(g.session.date_time).getTime() <= now)
+    .sort((a, b) => new Date(b.session.date_time) - new Date(a.session.date_time));
+
+  const active = tab ?? (upcoming.length || !past.length ? "upcoming" : "past");
+  const list = active === "upcoming" ? upcoming : past;
 
   return (
-    <div className="bg-black text-white min-h-screen pt-24 px-10">
-      <h1 className="text-4xl font-bold mb-10 border-l-4 border-red-600 pl-3">
-        🎫 Мои билеты
-      </h1>
+    <div className="space-y-5">
+      <h1 className="text-xl font-semibold">Мои билеты</h1>
 
-      {/* 🔜 Предстоящие */}
-      {upcoming.length > 0 && (
-        <>
-          <h2 className="text-2xl font-semibold mb-5 text-green-400">
-            🔜 Предстоящие сеансы
-          </h2>
-          <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mb-12">
-            {upcoming.map((t) => (
-              <TicketCard key={t.id} t={t} isPast={false} />
-            ))}
-          </div>
-        </>
-      )}
+      <div className="flex gap-2">
+        {[
+          ["upcoming", "Предстоящие", upcoming.length],
+          ["past", "Прошедшие", past.length],
+        ].map(([key, label, count]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`rounded-full px-5 py-2 text-sm font-medium transition ${active === key ? "bg-lav-200" : "bg-white hover:bg-lav-100"
+              }`}
+          >
+            {label} <span className="text-black/45">{count}</span>
+          </button>
+        ))}
+      </div>
 
-      {/* ⏳ Прошедшие */}
-      {past.length > 0 && (
-        <>
-          <h2 className="text-2xl font-semibold mb-5 text-gray-400">
-            ⏳ Прошедшие сеансы
-          </h2>
-          <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {past.map((t) => (
-              <TicketCard key={t.id} t={t} isPast={true} />
-            ))}
-          </div>
-        </>
+      {loading ? (
+        <p className="py-20 text-center text-black/50">Загрузка билетов...</p>
+      ) : list.length === 0 ? (
+        <Empty
+          title={active === "upcoming" ? "Предстоящих билетов нет" : "Прошедших билетов нет"}
+          text={active === "upcoming" ? "Выберите фильм и сеанс на главной странице." : undefined}
+          action={
+            active === "upcoming" ? (
+              <Link to="/" className="btn-dark mt-6">
+                Выбрать сеанс
+              </Link>
+            ) : null
+          }
+        />
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {list.map((g) => (
+            <TicketCard key={g.session.id} group={g} past={active === "past"} />
+          ))}
+        </div>
       )}
     </div>
   );

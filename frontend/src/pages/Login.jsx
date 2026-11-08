@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { getCurrentUser } from "../api/index";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -16,78 +17,37 @@ export default function Login() {
     setError("");
 
     try {
-      // 🔹 Авторизация
-      const res = await fetch("http://127.0.0.1:8000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ username: email, password }),
-      });
+      // login(email, password) сам сохраняет токен и загружает пользователя
+      await login(email, password);
 
-      if (!res.ok) {
-        setError("Неверный email или пароль");
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      const token = data.access_token;
-
-      // 🔹 Получаем пользователя по токену
-      const userRes = await fetch("http://127.0.0.1:8000/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!userRes.ok) {
-        setError("Ошибка получения данных пользователя");
-        setLoading(false);
-        return;
-      }
-
-      const user = await userRes.json();
-
-      // ✅ Сохраняем токен и пользователя в AuthContext
-      login(token, user);
-
-      // 🔁 Перенаправление без перезагрузки
-      if (user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/");
-      }
+      const user = await getCurrentUser(localStorage.getItem("token"));
+      navigate(user.role === "admin" ? "/admin" : "/");
     } catch (err) {
       console.error(err);
-      setError("Ошибка при входе в систему");
+      setError(err.message || "Не удалось войти. Проверьте email и пароль.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-2xl shadow-lg w-80"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center text-yellow-400">
-          Вход в систему
-        </h2>
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <form onSubmit={handleSubmit} className="card w-full max-w-sm p-8!">
+        <h2 className="mb-6 text-center text-xl font-semibold">Вход</h2>
 
-        <div className="mb-4">
-          <label className="block text-sm mb-2">Email</label>
+        <div className="space-y-3">
           <input
             type="email"
-            className="w-full p-2 rounded bg-gray-700 text-white focus:ring-2 focus:ring-yellow-400 outline-none"
+            placeholder="Email"
+            className="input"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-sm mb-2">Пароль</label>
           <input
             type="password"
-            className="w-full p-2 rounded bg-gray-700 text-white focus:ring-2 focus:ring-yellow-400 outline-none"
+            placeholder="Пароль"
+            className="input"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -95,16 +55,21 @@ export default function Login() {
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
+          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-2 text-center text-sm text-red-700">
+            {error}
+          </p>
         )}
 
-        <button
-          type="submit"
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold py-2 rounded transition"
-          disabled={loading}
-        >
+        <button type="submit" className="btn-dark mt-6 w-full" disabled={loading}>
           {loading ? "Входим..." : "Войти"}
         </button>
+
+        <p className="mt-5 text-center text-sm text-black/60">
+          Нет аккаунта?{" "}
+          <Link to="/register" className="font-semibold text-ink underline underline-offset-4">
+            Создать
+          </Link>
+        </p>
       </form>
     </div>
   );

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Literal
 from datetime import datetime
 
@@ -12,7 +12,31 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str   # при регистрации нужен пароль
+    username: str = Field(
+        min_length=3,
+        max_length=32,
+        pattern=r"^[A-Za-z0-9_]+$"
+    )
+
+    password: str = Field(
+        min_length=8,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9]+$"
+    )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not any(char.isalpha() for char in value):
+            raise ValueError("Password must contain at least one letter")
+
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must contain at least one digit")
+
+        return value
+
+class RoleUpdate(BaseModel):
+    role: Literal["user", "admin"]
 
 
 class UserLogin(BaseModel):
@@ -113,8 +137,8 @@ class TicketCreate(BaseModel):
 
 class Ticket(TicketBase):
     id: int
-    session_id: int
-    user_id: int
+    session_id: int | None = None
+    user_id: int | None = None  # NULL, если пользователь удалён
 
     class Config:
         orm_mode = True

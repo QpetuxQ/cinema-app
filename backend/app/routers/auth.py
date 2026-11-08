@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from backend.app import models, schemas, database
 from backend.core import security
+from backend.core.dependencies import get_current_admin
 
 router = APIRouter(
     prefix="/auth",
@@ -81,8 +82,45 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/all")
-def get_all_users(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Недостаточно прав")
-    return db.query(models.User).all()
+@router.get("/all", response_model=list[schemas.User])
+def get_all_users(
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    return db.query(models.User).order_by(models.User.id).all()
+
+
+@router.put("/{user_id}/role", response_model=schemas.User)
+def change_role(
+    user_id: int,
+    data: schemas.RoleUpdate,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    if user.id == admin.id and data.role != "admin":
+        raise HTTPException(status_code=400, detail="Нельзя снять права администратора у самого себя")
+
+    user.role = data.role
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Нельзя удалить самого себя")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    db.delete(user)  # билеты остаются, user_id становится NULL
+    db.commit()
+    return {"message": "Пользователь удалён"}
